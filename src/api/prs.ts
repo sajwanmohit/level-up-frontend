@@ -1,11 +1,10 @@
-import { apiClient, isApiConfigured } from './client'
-import { demoStore } from './demoStore'
+import { apiClient, requireApiConfigured } from './client'
 import { mapPersonalRecord } from './mappers'
 import { getRequiredUserId } from './user'
 import type { ApiPersonalRecord, PersonalRecord } from '../types'
 
 export async function getPRs(): Promise<PersonalRecord[]> {
-  if (!isApiConfigured) return demoStore.personalRecords()
+  requireApiConfigured()
   const { data } = await apiClient.get<ApiPersonalRecord[]>('/prs', {
     params: { userId: getRequiredUserId() },
   })

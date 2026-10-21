@@ -1,8 +1,8 @@
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
+  Area, AreaChart, CartesianGrid, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts'
-import type { DashboardAnalytics, ExerciseAnalytics } from '../types'
+import type { ExerciseAnalytics } from '../types'
 import { ChartCard } from './ui'
 
 const axisProps = {
@@ -11,23 +11,7 @@ const axisProps = {
   tick: { fill: '#8c9189', fontSize: 11 },
 }
 
-export function WeeklyVolumeChart({ data }: { data: DashboardAnalytics['weeklyVolume'] }) {
-  return (
-    <ChartCard title="Weekly volume" subtitle="Total load moved · kg">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 12, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid vertical={false} stroke="#e9eae5" />
-          <XAxis dataKey="label" {...axisProps} />
-          <YAxis {...axisProps} />
-          <Tooltip cursor={{ fill: '#f0f2ec' }} formatter={(value) => [`${Number(value).toLocaleString()} kg`, 'Volume']} />
-          <Bar dataKey="volume" fill="#315c43" radius={[4, 4, 0, 0]} maxBarSize={30} />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  )
-}
-
-export function StrengthChart({ data }: { data: ExerciseAnalytics['strengthProgression'] | DashboardAnalytics['strengthProgression'] }) {
+export function StrengthChart({ data }: { data: ExerciseAnalytics['strengthProgression'] }) {
   return (
     <ChartCard title="Estimated 1RM" subtitle="Bench press · kg">
       <ResponsiveContainer width="100%" height="100%">
@@ -44,22 +28,6 @@ export function StrengthChart({ data }: { data: ExerciseAnalytics['strengthProgr
   )
 }
 
-export function FrequencyChart({ data }: { data: DashboardAnalytics['workoutFrequency'] }) {
-  return (
-    <ChartCard title="Workout frequency" subtitle="Sessions per week">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 12, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid vertical={false} stroke="#e9eae5" />
-          <XAxis dataKey="label" {...axisProps} />
-          <YAxis allowDecimals={false} {...axisProps} />
-          <Tooltip formatter={(value) => [value, 'Workouts']} />
-          <Bar dataKey="workouts" fill="#91a88d" radius={[4, 4, 0, 0]} maxBarSize={32} />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  )
-}
-
 export function ExerciseVolumeChart({ data }: { data: ExerciseAnalytics['volumeOverTime'] }) {
   return (
     <ChartCard title="Volume over time" subtitle="Training volume · kg">
@@ -70,22 +38,6 @@ export function ExerciseVolumeChart({ data }: { data: ExerciseAnalytics['volumeO
           <YAxis {...axisProps} />
           <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} kg`, 'Volume']} />
           <Area type="monotone" dataKey="volume" stroke="#668568" fill="#e4ece1" strokeWidth={2} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  )
-}
-
-export function BestWeightChart({ data }: { data: ExerciseAnalytics['bestWeightOverTime'] }) {
-  return (
-    <ChartCard title="Best weight" subtitle="Top working set · kg">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 12, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid vertical={false} stroke="#e9eae5" />
-          <XAxis dataKey="date" {...axisProps} />
-          <YAxis {...axisProps} />
-          <Tooltip formatter={(value) => [`${value} kg`, 'Best weight']} />
-          <Area type="monotone" dataKey="weight" stroke="#315c43" fill="#e4ece1" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>

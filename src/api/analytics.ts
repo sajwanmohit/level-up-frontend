@@ -1,24 +1,17 @@
-import { apiClient, isApiConfigured } from './client'
-import { demoStore } from './demoStore'
+import { apiClient, requireApiConfigured } from './client'
 import { getRequiredUserId } from './user'
-import type { AnalyticsSummary, ApiDailyAnalytics, ApiDashboardAnalytics, DashboardAnalytics } from '../types'
+import type { ApiDailyAnalytics, ApiDashboardAnalytics } from '../types'
 
-export async function getDashboardAnalytics(): Promise<DashboardAnalytics | ApiDashboardAnalytics> {
-  if (!isApiConfigured) return demoStore.dashboardAnalytics()
+export async function getDashboardAnalytics(): Promise<ApiDashboardAnalytics> {
+  requireApiConfigured()
   const { data } = await apiClient.get<ApiDashboardAnalytics>('/analytics/dashboard', {
     params: { userId: getRequiredUserId() },
   })
   return data
 }
 
-export async function getAnalytics(range: string, exerciseId?: string): Promise<AnalyticsSummary> {
-  if (!isApiConfigured) return demoStore.analytics()
-  void range
-  void exerciseId
-  throw new Error('Choose a completed workout to view daily analytics.')
-}
-
 export async function getDailyAnalytics(workoutId: string): Promise<ApiDailyAnalytics> {
+  requireApiConfigured()
   const { data } = await apiClient.get<ApiDailyAnalytics>('/analytics/daily', {
     params: { workoutId },
   })

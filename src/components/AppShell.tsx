@@ -50,7 +50,7 @@ export function AppShell() {
           </NavLink>
           <div className="sidebar-note">
             <div className="avatar">{(activeUser?.name || 'M').slice(0, 1).toUpperCase()}</div>
-            <div><strong>{activeUser?.name || 'Member'}</strong><small>{isApiConfigured ? activeUser?.id ?? 'Set up profile' : 'Demo workspace'}</small></div>
+            <div><strong>{activeUser?.name || 'Member'}</strong><small>{activeUser?.id ?? 'Set up profile'}</small></div>
             <ArrowUpRight size={15} />
           </div>
         </div>
@@ -74,7 +74,9 @@ export function AppShell() {
           </NavLink>
         </div>
         <main className="main-content">
-          {isApiConfigured && !activeUser ? <UserSetup /> : <Outlet />}
+          {!isApiConfigured
+            ? <div className="page-stack"><h1>Backend configuration required</h1><p className="muted">Set <code>VITE_API_BASE_URL</code> in <code>.env.local</code> for local development or in your production environment, then restart or rebuild the app.</p></div>
+            : !activeUser ? <UserSetup /> : <Outlet />}
         </main>
         <footer className="app-footer"><span>Train. Track. Progress.</span><span>LEVEL UP / V1</span></footer>
       </div>

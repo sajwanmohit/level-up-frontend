@@ -19,11 +19,10 @@ A responsive V1 training log for daily workouts, exercises, sets, strength progr
 ```sh
 npm install
 cp .env.example .env.local
-# Leave the local API URL in place to connect to the backend, or clear it for demo data.
 npm run dev
 ```
 
-When `VITE_API_BASE_URL` is blank, the app uses explicitly labeled demo data persisted in browser storage so the frontend can be explored without a backend. Set `VITE_API_BASE_URL=http://localhost:8080/api/v1` to use the backend. On first launch in API mode, create a user or enter an existing user UUID. The selected user ID is stored in browser storage; there is no backend authentication or user directory. API requests are centralized under `src/api/`; React pages do not make fetch/Axios requests directly.
+The app always uses the backend; it does not include a demo-data fallback. The local template points to `http://localhost:8080/api/v1`. Configure `VITE_API_BASE_URL` for the backend you want to use. On first launch, create a user or enter an existing user UUID. The selected user ID is stored in browser storage; there is no backend authentication or user directory. API requests are centralized under `src/api/`; React pages do not make fetch/Axios requests directly.
 
 ## Commands
 
@@ -41,7 +40,7 @@ npm run preview
 
 - `.env.example` is the safe local template.
 - `.env.local` is ignored by Git.
-- `.env.production.example` documents the production URL format. `.env.production` stays blank by default; set `VITE_API_BASE_URL` in the Vercel project settings before deployment.
+- `.env.production.example` documents the production URL format. Set `VITE_API_BASE_URL` to the production API URL in your deployment environment (for example, Vercel project settings); the value is embedded at build time. If no API URL is configured, the app displays a configuration notice and does not send requests to the frontend origin.
 
 The intended public repository is [`sajwanmohit/level-up`](https://github.com/sajwanmohit/level-up). Create the GitHub repository with that name, then connect and push this local project.
 
@@ -49,9 +48,8 @@ The intended public repository is [`sajwanmohit/level-up`](https://github.com/sa
 
 ```text
 src/
-  api/          typed API services and the opt-in demo store
+  api/          typed API services and backend client
   components/   shared shell, charts, and UI primitives
-  data/         aggregated demo fixtures for backend-free preview
   features/
     analytics/
     dashboard/
@@ -67,4 +65,4 @@ Routes include `/dashboard`, `/workouts`, `/workouts/new`, `/workouts/:workoutId
 
 The API client uses the documented `/users`, `/exercises`, `/workouts`, `/exercise-sessions`, `/sets`, `/prs`, and `/analytics` endpoints. The workout composer creates the workout, adds its exercise sessions and sets, then updates the workout with `completedAt` to finish it. Dashboard, PR history, exercise progression, and completed-workout analytics use the matching backend analytics endpoints.
 
-The API does not provide training preferences, a generic date-range analytics route, or an exercise-by-ID detail route. In API mode, Settings manages the active user profile, the exercise library uses `GET /exercises` and `POST /exercises`, and Analytics analyzes a selected completed workout.
+The API does not provide training preferences, a generic date-range analytics route, or an exercise-by-ID detail route. Settings manages the active user profile, the exercise library uses `GET /exercises` and `POST /exercises`, and Analytics analyzes a selected completed workout.
