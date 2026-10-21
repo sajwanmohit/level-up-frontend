@@ -159,31 +159,7 @@ export type ApiExerciseAnalytics = {
   }[]
 }
 
-export type VolumePoint = { label: string; volume: number }
 export type StrengthPoint = { date: string; e1rm: number }
-
-export type DashboardAnalytics = {
-  workoutsThisWeek: number
-  totalSets: number
-  totalVolume: number
-  prsThisMonth: number
-  consistency: number
-  weeklyVolume: VolumePoint[]
-  strengthProgression: StrengthPoint[]
-  workoutFrequency: { label: string; workouts: number }[]
-}
-
-export type AnalyticsSummary = {
-  totalWorkouts: number
-  totalSets: number
-  totalVolume: number
-  averageWorkoutVolume: number
-  averageRpe: number
-  prCount: number
-  weeklyVolume: VolumePoint[]
-  strengthProgression: StrengthPoint[]
-  workoutFrequency: { label: string; workouts: number }[]
-}
 
 export type ExerciseAnalytics = {
   sessions: number
@@ -195,19 +171,5 @@ export type ExerciseAnalytics = {
   latestE1rm?: number
   prCount: number
   strengthProgression: StrengthPoint[]
-  volumeOverTime: VolumePoint[]
-  bestWeightOverTime: { date: string; weight: number }[]
-  recentPerformance: {
-    date: string
-    weight: number
-    reps: number
-    rpe: number
-    rir: number
-    e1rm: number
-    volume: number
-  }[]
-}
-
-export type TrainingSettings = {
-  trainingDays: string[]
+  volumeOverTime: { label: string; volume: number }[]
 }

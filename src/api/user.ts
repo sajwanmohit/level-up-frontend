@@ -1,4 +1,4 @@
-import { apiClient, isApiConfigured } from './client'
+import { apiClient, isApiConfigured, requireApiConfigured } from './client'
 
 const PROFILE_KEY = 'level-up.active-user'
 const USER_CHANGED_EVENT = 'level-up-user-changed'
@@ -35,6 +35,7 @@ export function setActiveUser(user: UserProfile): void {
 }
 
 export async function createUser(input: Pick<UserProfile, 'name' | 'email'>): Promise<UserProfile> {
+  requireApiConfigured()
   const { data } = await apiClient.post<UserProfile>('/users', input)
   return data
 }

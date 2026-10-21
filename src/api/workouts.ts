@@ -1,5 +1,4 @@
-import { apiClient, apiErrorMessage, isApiConfigured } from './client'
-import { demoStore } from './demoStore'
+import { apiClient, apiErrorMessage, requireApiConfigured } from './client'
 import { mapApiSet, mapWorkout, mapWorkoutDetail, mapPersonalRecord } from './mappers'
 import { getRequiredUserId } from './user'
 import type { ApiSet, ApiWorkout, ApiWorkoutDetail, PersonalRecord, Workout } from '../types'
@@ -15,7 +14,7 @@ function workoutCalendarDate(value: string): string {
 }
 
 export async function getWorkouts(): Promise<Workout[]> {
-  if (!isApiConfigured) return demoStore.workouts()
+  requireApiConfigured()
   const { data } = await apiClient.get<ApiWorkout[]>('/workouts', {
     params: { userId: getRequiredUserId() },
   })
@@ -23,13 +22,13 @@ export async function getWorkouts(): Promise<Workout[]> {
 }
 
 export async function getWorkout(id: string): Promise<Workout | null> {
-  if (!isApiConfigured) return demoStore.workout(id)
+  requireApiConfigured()
   const { data } = await apiClient.get<ApiWorkoutDetail>(`/workouts/${encodeURIComponent(id)}`)
   return mapWorkoutDetail(data)
 }
 
 export async function createWorkout(workout: Omit<Workout, 'id'>): Promise<Workout> {
-  if (!isApiConfigured) return demoStore.createWorkout(workout)
+  requireApiConfigured()
   const userId = getRequiredUserId()
   const startedAt = workout.startedAt ?? new Date(workout.date).toISOString()
   const workoutDate = workoutCalendarDate(workout.date)
@@ -78,11 +77,7 @@ export async function createWorkout(workout: Omit<Workout, 'id'>): Promise<Worko
 }
 
 export async function completeWorkout(id: string): Promise<Workout | null> {
-  if (!isApiConfigured) {
-    const workout = demoStore.completeWorkout(id)
-    if (!workout) throw new Error('The workout could not be found.')
-    return workout
-  }
+  requireApiConfigured()
   const current = await getWorkout(id)
   if (!current) return null
   const userId = getRequiredUserId()

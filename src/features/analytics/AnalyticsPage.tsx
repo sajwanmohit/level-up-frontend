@@ -1,21 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, CalendarRange, Dumbbell, Flame, Weight } from 'lucide-react'
-import { getAnalytics, getDailyAnalytics } from '../../api/analytics'
-import { getExercises } from '../../api/exercises'
+import { ArrowUpRight, Dumbbell, Flame, Weight } from 'lucide-react'
+import { getDailyAnalytics } from '../../api/analytics'
 import { getWorkouts } from '../../api/workouts'
-import { isApiConfigured } from '../../api/client'
 import { mapPersonalRecord } from '../../api/mappers'
-import { FrequencyChart, StrengthChart, WeeklyVolumeChart } from '../../components/Charts'
-import { Badge, Card, DataTable, DatePicker, EmptyState, ErrorState, LoadingState, PageHeading, Select, StatCard } from '../../components/ui'
+import { Badge, Card, DataTable, EmptyState, ErrorState, LoadingState, PageHeading, Select, StatCard } from '../../components/ui'
 import type { ApiDailyAnalytics } from '../../types'
 
 export function AnalyticsPage() {
-  if (isApiConfigured) return <BackendAnalyticsPage />
-  return <DemoAnalyticsPage />
-}
-
-function BackendAnalyticsPage() {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('')
   const workoutsQuery = useQuery({ queryKey: ['workouts'], queryFn: getWorkouts })
   const workouts = workoutsQuery.data ?? []
@@ -102,67 +94,6 @@ function DailyAnalyticsView({
           <div className="record-value"><span>NEW BEST</span><strong>{record.value}</strong></div>
         </Card>)}
       </div>}
-    </div>
-  )
-}
-
-function DemoAnalyticsPage() {
-  const [range, setRange] = useState('30d')
-  const [exerciseId, setExerciseId] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const exerciseQuery = useQuery({ queryKey: ['exercises'], queryFn: getExercises })
-  const analyticsQuery = useQuery({
-    queryKey: ['analytics', range, exerciseId, startDate, endDate],
-    queryFn: () => getAnalytics(range === 'custom' ? `${startDate},${endDate}` : range, exerciseId || undefined),
-    enabled: range !== 'custom' || Boolean(startDate && endDate && startDate <= endDate),
-  })
-
-  if (range === 'custom' && (!startDate || !endDate || startDate > endDate)) {
-    return (
-      <div className="page-stack">
-        <PageHeading eyebrow="TRAINING INTELLIGENCE" title="Your work, visualized." description="See the patterns. Keep building on them." />
-        <div className="analytics-filters">
-          <label className="filter-label"><CalendarRange size={16} /><Select aria-label="Date range" value={range} onChange={(event) => setRange(event.target.value)}>
-            <option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option><option value="custom">Custom range</option>
-          </Select></label>
-          <DatePicker aria-label="Start date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <DatePicker aria-label="End date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-          <span className="muted">Choose a valid date range to view analytics.</span>
-        </div>
-      </div>
-    )
-  }
-  if (analyticsQuery.isLoading || exerciseQuery.isLoading) return <LoadingState label="Preparing your training analytics…" />
-  if (analyticsQuery.error || exerciseQuery.error) return <ErrorState message="Analytics couldn't be loaded." retry={() => { void analyticsQuery.refetch(); void exerciseQuery.refetch() }} />
-  const analytics = analyticsQuery.data
-  if (!analytics) return <ErrorState message="No analytics data was returned." />
-
-  return (
-    <div className="page-stack">
-      <PageHeading eyebrow="TRAINING INTELLIGENCE" title="Your work, visualized." description="See the patterns. Keep building on them." />
-      <div className="analytics-filters">
-        <label className="filter-label"><CalendarRange size={16} /><Select aria-label="Date range" value={range} onChange={(event) => setRange(event.target.value)}>
-          <option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option><option value="custom">Custom range</option>
-        </Select></label>
-        {range === 'custom' && <><DatePicker aria-label="Start date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /><DatePicker aria-label="End date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></>}
-        <label className="filter-label"><Dumbbell size={16} /><Select aria-label="Choose an exercise" value={exerciseId} onChange={(event) => setExerciseId(event.target.value)}>
-          <option value="">All exercises</option>{(exerciseQuery.data ?? []).map((exercise) => <option value={exercise.id} key={exercise.id}>{exercise.name}</option>)}
-        </Select></label>
-      </div>
-      <div className="stats-grid">
-        <StatCard label="Total workouts" value={String(analytics.totalWorkouts)} detail="Selected period" icon={<Dumbbell size={17} />} />
-        <StatCard label="Total sets" value={String(analytics.totalSets)} detail="Logged sets" icon={<ArrowUpRight size={17} />} />
-        <StatCard label="Total volume" value={`${(analytics.totalVolume / 1000).toFixed(1)}k kg`} detail="Across selected period" icon={<Weight size={17} />} />
-        <StatCard label="Personal records" value={String(analytics.prCount)} detail="New bests" icon={<Flame size={17} />} />
-      </div>
-      <div className="analytics-secondary">
-        <div><span>AVG. WORKOUT VOLUME</span><strong>{analytics.averageWorkoutVolume.toLocaleString()} kg</strong></div>
-        <div><span>AVERAGE RPE</span><strong>{analytics.averageRpe.toFixed(1)} <small>/ 10</small></strong></div>
-        <div><span>STRENGTH TREND</span><strong className="trend-up">Trending up <ArrowUpRight size={16} /></strong></div>
-      </div>
-      <div className="section-title-row section-title-spaced"><div><p className="eyebrow">PERFORMANCE</p><h2>Training progression</h2></div></div>
-      <div className="chart-grid"><WeeklyVolumeChart data={analytics.weeklyVolume} /><StrengthChart data={analytics.strengthProgression} /><FrequencyChart data={analytics.workoutFrequency} /></div>
     </div>
   )
 }

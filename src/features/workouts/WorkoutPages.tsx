@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, Clock3, Dumbbell, Plus, Trophy, Weight, X } from 'lucide-react'
-import { apiErrorMessage, isApiConfigured } from '../../api/client'
+import { ArrowLeft, ArrowRight, Check, Plus, Trophy, X } from 'lucide-react'
+import { apiErrorMessage } from '../../api/client'
 import { getExercises } from '../../api/exercises'
 import { completeWorkout, createWorkout, getWorkout, getWorkouts } from '../../api/workouts'
 import type { Exercise, SetEntry, Workout, WorkoutExercise } from '../../types'
@@ -38,8 +38,7 @@ export function WorkoutsPage() {
           <Link key={workout.id} to={`/workouts/${workout.id}`} className="workout-link">
             <Card className="workout-row">
               <div className="workout-date"><span>{new Date(`${workout.date.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: '2-digit' })}</span><small>{new Date(`${workout.date.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { month: 'short' })}</small></div>
-              <div className="workout-info"><div className="workout-name-line"><h3>{workout.name}</h3><Badge tone={workout.completed ? 'green' : 'amber'}>{workout.completed ? 'Completed' : 'In progress'}</Badge></div><p>{workout.exercises.length ? workout.exercises.map((item) => item.exercise.name).join(' · ') : isApiConfigured ? 'Open to see exercises and sets' : ''}</p></div>
-              {!isApiConfigured && <div className="workout-data"><span><Clock3 size={14} />{workout.durationMinutes} min</span><span><Dumbbell size={14} />{workout.exercises.reduce((n, item) => n + item.sets.length, 0)} sets</span><span><Weight size={14} />{totalVolume(workout).toLocaleString()} kg</span><span><Trophy size={14} />{workout.personalRecords?.length ?? 0} PRs</span></div>}
+              <div className="workout-info"><div className="workout-name-line"><h3>{workout.name}</h3><Badge tone={workout.completed ? 'green' : 'amber'}>{workout.completed ? 'Completed' : 'In progress'}</Badge></div><p>{workout.exercises.length ? workout.exercises.map((item) => item.exercise.name).join(' · ') : 'Open to see exercises and sets'}</p></div>
               <span className="workout-date-full">{new Date(`${workout.date.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
             </Card>
           </Link>

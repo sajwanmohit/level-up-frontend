@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Plus, Search, Trophy, X } from 'lucide-react'
-import { apiErrorMessage, isApiConfigured } from '../../api/client'
+import { apiErrorMessage } from '../../api/client'
 import { createExercise, getExercise, getExerciseAnalytics, getExercises } from '../../api/exercises'
-import { BestWeightChart, ExerciseVolumeChart, StrengthChart } from '../../components/Charts'
-import { Badge, Button, Card, DataTable, EmptyState, ErrorState, LoadingState, PageHeading, Select, StatCard, TextInput } from '../../components/ui'
+import { ExerciseVolumeChart, StrengthChart } from '../../components/Charts'
+import { Badge, Button, Card, EmptyState, ErrorState, LoadingState, PageHeading, Select, StatCard, TextInput } from '../../components/ui'
 
 export function ExercisesPage() {
   const [search, setSearch] = useState('')
@@ -50,7 +50,7 @@ export function ExercisesPage() {
   return (
     <div className="page-stack">
       <PageHeading eyebrow="MOVEMENT LIBRARY" title="Exercises" description="A clear view of every movement in your training."
-        action={isApiConfigured && <Button onClick={() => setShowCreate((visible) => !visible)}>{showCreate ? <X size={16} /> : <Plus size={16} />}{showCreate ? 'Close' : 'Add exercise'}</Button>} />
+        action={<Button onClick={() => setShowCreate((visible) => !visible)}>{showCreate ? <X size={16} /> : <Plus size={16} />}{showCreate ? 'Close' : 'Add exercise'}</Button>} />
       {showCreate && <Card className="settings-card">
         <h2>Add an exercise</h2>
         {createMutation.error && <div className="inline-error" role="alert">{apiErrorMessage(createMutation.error)}</div>}
@@ -131,28 +131,11 @@ export function ExerciseDetailPage() {
         <Card className="best-card"><span>BEST REPS</span><strong>{analytics.bestReps ?? '—'} <small>reps</small></strong></Card>
         <Card className="best-card"><span>BEST EST. 1RM</span><strong>{analytics.bestE1rm > 0 ? analytics.bestE1rm : '—'} <small>kg</small></strong></Card>
       </div>
-      <div className="section-title-row section-title-spaced"><div><p className="eyebrow">PROGRESSION</p><h2>Performance trends</h2></div>{!isApiConfigured && <Select aria-label="Progression date range" defaultValue="90d"><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option><option value="1y">Last year</option></Select>}</div>
+      <div className="section-title-row section-title-spaced"><div><p className="eyebrow">PROGRESSION</p><h2>Performance trends</h2></div></div>
       <div className="chart-grid">
         <StrengthChart data={analytics.strengthProgression} />
         <ExerciseVolumeChart data={analytics.volumeOverTime} />
-        {!isApiConfigured && <BestWeightChart data={analytics.bestWeightOverTime} />}
       </div>
-      {!isApiConfigured && <>
-        <div className="section-title-row section-title-spaced"><div><p className="eyebrow">RECENT SESSIONS</p><h2>Recent performance</h2></div></div>
-        <Card className="table-card"><DataTable
-          rows={analytics.recentPerformance}
-          getRowKey={(row) => `${row.date}-${row.weight}-${row.reps}`}
-          columns={[
-            { key: 'date', heading: 'DATE', render: (row) => row.date },
-            { key: 'weight', heading: 'WEIGHT', render: (row) => `${row.weight} kg` },
-            { key: 'reps', heading: 'REPS', render: (row) => row.reps },
-            { key: 'rpe', heading: 'RPE', render: (row) => row.rpe },
-            { key: 'rir', heading: 'RIR', render: (row) => row.rir },
-            { key: 'e1rm', heading: 'e1RM', render: (row) => `${row.e1rm} kg` },
-            { key: 'volume', heading: 'VOLUME', render: (row) => `${row.volume} kg` },
-          ]}
-        /></Card>
-      </>}
     </div>
   )
 }
