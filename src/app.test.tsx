@@ -18,10 +18,17 @@ const apiMocks = vi.hoisted(() => ({
   getDashboardAnalytics: vi.fn(),
   getDailyAnalytics: vi.fn(),
   getPRs: vi.fn(),
+  getExercisePRs: vi.fn(),
   getWorkout: vi.fn(),
   getWorkouts: vi.fn(),
   createWorkout: vi.fn(),
   completeWorkout: vi.fn(),
+  deleteWorkout: vi.fn(),
+  addExerciseToWorkout: vi.fn(),
+  addSetToExerciseSession: vi.fn(),
+  removeExerciseFromWorkout: vi.fn(),
+  updateSet: vi.fn(),
+  deleteSet: vi.fn(),
 }))
 
 vi.mock('./api/exercises', () => ({
@@ -34,12 +41,18 @@ vi.mock('./api/analytics', () => ({
   getDashboardAnalytics: apiMocks.getDashboardAnalytics,
   getDailyAnalytics: apiMocks.getDailyAnalytics,
 }))
-vi.mock('./api/prs', () => ({ getPRs: apiMocks.getPRs }))
+vi.mock('./api/prs', () => ({ getPRs: apiMocks.getPRs, getExercisePRs: apiMocks.getExercisePRs }))
 vi.mock('./api/workouts', () => ({
   getWorkout: apiMocks.getWorkout,
   getWorkouts: apiMocks.getWorkouts,
   createWorkout: apiMocks.createWorkout,
   completeWorkout: apiMocks.completeWorkout,
+  deleteWorkout: apiMocks.deleteWorkout,
+  addExerciseToWorkout: apiMocks.addExerciseToWorkout,
+  addSetToExerciseSession: apiMocks.addSetToExerciseSession,
+  removeExerciseFromWorkout: apiMocks.removeExerciseFromWorkout,
+  updateSet: apiMocks.updateSet,
+  deleteSet: apiMocks.deleteSet,
 }))
 vi.mock('./components/Charts', () => ({
   StrengthChart: () => <div>Estimated 1RM chart</div>,
@@ -81,8 +94,6 @@ const records: PersonalRecord[] = [{
   exercise: 'Barbell Bench Press',
   type: 'Estimated 1RM PR',
   value: '101.3 kg',
-  previous: '97.8 kg',
-  improvement: '+3.6%',
   date: '2026-10-20',
 }]
 const dailyAnalytics: ApiDailyAnalytics = {
@@ -146,6 +157,7 @@ beforeEach(() => {
   })
   apiMocks.getDailyAnalytics.mockResolvedValue(dailyAnalytics)
   apiMocks.getPRs.mockResolvedValue(records)
+  apiMocks.getExercisePRs.mockResolvedValue(records)
   apiMocks.getWorkout.mockImplementation(async () => createdWorkout ?? completedWorkout())
   apiMocks.getWorkouts.mockResolvedValue([])
   apiMocks.createWorkout.mockImplementation(async (workout: Omit<Workout, 'id'>) => {
@@ -153,6 +165,7 @@ beforeEach(() => {
     return createdWorkout
   })
   apiMocks.completeWorkout.mockResolvedValue(completedWorkout())
+  apiMocks.deleteWorkout.mockResolvedValue(undefined)
 })
 
 describe('Level Up frontend', () => {
@@ -201,7 +214,7 @@ describe('Level Up frontend', () => {
       </Routes>,
       ['/exercises/bench-press'],
     )
-    expect(await screen.findByRole('heading', { name: 'Barbell Bench Press' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Barbell Bench Press', level: 1 })).toBeInTheDocument()
     expect(screen.getAllByText('101.3 kg').length).toBeGreaterThan(0)
     expect(screen.getByText('Exercise volume chart')).toBeInTheDocument()
     expect(screen.getByText('Performance trends')).toBeInTheDocument()
@@ -212,7 +225,6 @@ describe('Level Up frontend', () => {
     expect(await screen.findByRole('heading', { name: 'Proof of progress.' })).toBeInTheDocument()
     expect(screen.getByText('Estimated 1RM PR')).toBeInTheDocument()
     expect(screen.getByText('101.3 kg')).toBeInTheDocument()
-    expect(screen.getByText('+3.6%')).toBeInTheDocument()
   })
 
   it('loads analytics for a completed workout from the backend', async () => {
@@ -224,10 +236,11 @@ describe('Level Up frontend', () => {
     expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument()
   })
 
-  it('derives API configuration only from the Vite environment value', () => {
-    const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
-    expect(apiClient.defaults.baseURL).toBe(configuredBaseUrl)
-    expect(isApiConfigured).toBe(Boolean(configuredBaseUrl))
-    if (!configuredBaseUrl) expect(requireApiConfigured).toThrow(/VITE_API_BASE_URL/)
+  it('defaults API requests to the local backend and supports configured base URLs', () => {
+    const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8080'
+    const normalizedBaseUrl = configuredBaseUrl.replace(/\/+$/, '')
+    expect(apiClient.defaults.baseURL).toBe(normalizedBaseUrl.endsWith('/api/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/api/v1`)
+    expect(isApiConfigured).toBe(true)
+    expect(requireApiConfigured).not.toThrow()
   })
 })

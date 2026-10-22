@@ -9,7 +9,7 @@ import type { ApiDailyAnalytics } from '../../types'
 
 export function AnalyticsPage() {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('')
-  const workoutsQuery = useQuery({ queryKey: ['workouts'], queryFn: getWorkouts })
+  const workoutsQuery = useQuery({ queryKey: ['workouts'], queryFn: () => getWorkouts() })
   const workouts = workoutsQuery.data ?? []
   const completedWorkouts = workouts.filter((workout) => workout.completed)
   const workoutId = completedWorkouts.some((workout) => workout.id === selectedWorkoutId)

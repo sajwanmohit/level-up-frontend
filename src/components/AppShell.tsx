@@ -4,7 +4,6 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   Activity, BarChart3, Dumbbell, LayoutDashboard, Settings2, Trophy, Plus, ArrowUpRight,
 } from 'lucide-react'
-import { isApiConfigured } from '../api/client'
 import { getActiveUser, userChangedEventName, type UserProfile } from '../api/user'
 import { UserSetup } from '../features/settings/UserSetup'
 
@@ -74,9 +73,7 @@ export function AppShell() {
           </NavLink>
         </div>
         <main className="main-content">
-          {!isApiConfigured
-            ? <div className="page-stack"><h1>Backend configuration required</h1><p className="muted">Set <code>VITE_API_BASE_URL</code> in <code>.env.local</code> for local development or in your production environment, then restart or rebuild the app.</p></div>
-            : !activeUser ? <UserSetup /> : <Outlet />}
+          {!activeUser ? <UserSetup /> : <Outlet />}
         </main>
         <footer className="app-footer"><span>Train. Track. Progress.</span><span>LEVEL UP / V1</span></footer>
       </div>

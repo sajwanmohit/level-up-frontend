@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, Trophy } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getPRs } from '../../api/prs'
 import { Badge, Card, EmptyState, ErrorState, LoadingState, PageHeading } from '../../components/ui'
@@ -25,7 +25,6 @@ export function PRsPage() {
             <div className="record-main">
               <div className="record-top"><Badge tone="green">{record.type}</Badge><span>{new Date(record.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
               <h3>{record.exercise}</h3>
-              {record.previous && record.improvement && <div className="record-comparison"><span>Previous <strong>{record.previous}</strong></span><ArrowUpRight size={15} /><span className="improvement">{record.improvement}</span></div>}
             </div>
             <div className="record-value"><span>NEW BEST</span><strong>{record.value}</strong></div>
           </Card>

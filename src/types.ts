@@ -24,6 +24,8 @@ export type Exercise = {
 export type WorkoutExercise = {
   exercise: Exercise
   sets: SetEntry[]
+  sessionId?: string
+  order?: number
 }
 
 export type Workout = {
@@ -45,8 +47,6 @@ export type PersonalRecord = {
   exercise: string
   type: 'Weight PR' | 'Rep PR' | 'Estimated 1RM PR' | 'Volume PR'
   value: string
-  previous?: string
-  improvement?: string
   date: string
 }
 
@@ -81,6 +81,40 @@ export type ApiWorkout = {
   completedAt: string | null
   name: string | null
   notes: string | null
+}
+
+export type CreateWorkoutRequest = {
+  userId: string
+  workoutDate: string
+  startedAt?: string | null
+  completedAt?: string | null
+  name?: string | null
+  notes?: string | null
+}
+
+export type CreateExerciseRequest = {
+  name: string
+  description?: string
+  muscleGroup?: string
+  equipment?: string
+  movementType?: string
+  compound: boolean
+}
+
+export type CreateExerciseSessionRequest = {
+  exerciseId: string
+  exerciseOrder: number
+  notes?: string
+}
+
+export type SetRequest = {
+  setNumber: number
+  weight: number
+  reps: number
+  rpe?: number
+  rir?: number
+  warmup?: boolean
+  failure?: boolean
 }
 
 export type ApiWorkoutDetail = {

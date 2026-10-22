@@ -10,3 +10,12 @@ export async function getPRs(): Promise<PersonalRecord[]> {
   })
   return data.map(mapPersonalRecord)
 }
+
+export async function getExercisePRs(exerciseId: string): Promise<PersonalRecord[]> {
+  requireApiConfigured()
+  const { data } = await apiClient.get<ApiPersonalRecord[]>(
+    `/prs/exercises/${encodeURIComponent(exerciseId)}`,
+    { params: { userId: getRequiredUserId() } },
+  )
+  return data.map(mapPersonalRecord)
+}

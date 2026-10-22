@@ -1,7 +1,7 @@
 import { apiClient, requireApiConfigured } from './client'
 import { mapExercise } from './mappers'
 import { getRequiredUserId } from './user'
-import type { ApiExercise, ApiExerciseAnalytics, Exercise, ExerciseAnalytics } from '../types'
+import type { ApiExercise, ApiExerciseAnalytics, CreateExerciseRequest, Exercise, ExerciseAnalytics } from '../types'
 
 export async function getExercises(): Promise<Exercise[]> {
   requireApiConfigured()
@@ -14,14 +14,7 @@ export async function getExercise(id: string): Promise<Exercise | null> {
   return exercises.find((exercise) => exercise.id === id) ?? null
 }
 
-export async function createExercise(input: {
-  name: string
-  description: string | null
-  muscleGroup: string | null
-  equipment: string | null
-  movementType: string | null
-  compound: boolean
-}): Promise<Exercise> {
+export async function createExercise(input: CreateExerciseRequest): Promise<Exercise> {
   requireApiConfigured()
   const { data } = await apiClient.post<ApiExercise>('/exercises', input)
   return mapExercise(data)

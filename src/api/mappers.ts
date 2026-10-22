@@ -66,6 +66,8 @@ export function mapWorkoutDetail(detail: ApiWorkoutDetail): Workout {
       .slice()
       .sort((left, right) => left.exerciseOrder - right.exerciseOrder)
       .map((entry) => ({
+        order: entry.exerciseOrder,
+        sessionId: entry.id,
         exercise: {
           id: entry.exerciseId,
           name: entry.exerciseName,
@@ -103,8 +105,8 @@ export function mapApiSet(set: SetEntry) {
     setNumber: set.number,
     weight: set.weight,
     reps: set.reps,
-    rpe: set.rpe,
-    rir: set.rir,
+    ...(set.rpe === null ? {} : { rpe: set.rpe }),
+    ...(set.rir === null ? {} : { rir: set.rir }),
     warmup: set.warmup,
     failure: set.failure,
   }
