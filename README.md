@@ -22,7 +22,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The app always uses the backend; it does not include a demo-data fallback. The local template points to `http://localhost:8080/api/v1`. Configure `VITE_API_BASE_URL` for the backend you want to use. On first launch, create a user or enter an existing user UUID. The selected user ID is stored in browser storage; there is no backend authentication or user directory. API requests are centralized under `src/api/`; React pages do not make fetch/Axios requests directly.
+The app always uses the backend; it does not include a demo-data fallback. The default local backend is `http://localhost:8080`. Configure `VITE_API_BASE_URL` to the backend origin for the environment you want to use; `/api/v1` is added automatically, and a value that already ends in `/api/v1` is also accepted. On first launch, create a user or enter an existing user UUID. The selected user ID is stored in browser storage; there is no backend authentication or user directory. API requests are centralized under `src/api/`; React pages do not make fetch/Axios requests directly.
 
 ## Commands
 
@@ -40,7 +40,7 @@ npm run preview
 
 - `.env.example` is the safe local template.
 - `.env.local` is ignored by Git.
-- `.env.production.example` documents the production URL format. Set `VITE_API_BASE_URL` to the production API URL in your deployment environment (for example, Vercel project settings); the value is embedded at build time. If no API URL is configured, the app displays a configuration notice and does not send requests to the frontend origin.
+- `.env.production.example` documents the production URL format. Set `VITE_API_BASE_URL` to the production backend origin in your deployment environment (for example, Vercel project settings); the value is embedded at build time. If unset, the app uses `http://localhost:8080`.
 
 The intended public repository is [`sajwanmohit/level-up`](https://github.com/sajwanmohit/level-up). Create the GitHub repository with that name, then connect and push this local project.
 
@@ -63,6 +63,6 @@ Routes include `/dashboard`, `/workouts`, `/workouts/new`, `/workouts/:workoutId
 
 ## Backend integration
 
-The API client uses the documented `/users`, `/exercises`, `/workouts`, `/exercise-sessions`, `/sets`, `/prs`, and `/analytics` endpoints. The workout composer creates the workout, adds its exercise sessions and sets, then updates the workout with `completedAt` to finish it. Dashboard, PR history, exercise progression, and completed-workout analytics use the matching backend analytics endpoints.
+The API client uses the documented `/users`, `/exercises`, `/workouts`, `/exercise-sessions`, `/sets`, `/prs`, and `/analytics` endpoints. The workout composer can save a draft or complete the workout; draft workouts can have exercises and sets added, edited, or removed before completion. Each create flow retains the backend-issued UUIDs for subsequent requests. Dashboard, PR history, exercise progression, and completed-workout analytics use the matching backend analytics endpoints.
 
 The API does not provide training preferences, a generic date-range analytics route, or an exercise-by-ID detail route. Settings manages the active user profile, the exercise library uses `GET /exercises` and `POST /exercises`, and Analytics analyzes a selected completed workout.

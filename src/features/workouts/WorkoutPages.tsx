@@ -1,12 +1,23 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, Plus, Trophy, X } from 'lucide-react'
-import { apiErrorMessage } from '../../api/client'
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Trophy, X } from 'lucide-react'
+import { apiErrorMessage, isApiNotFound } from '../../api/client'
 import { getExercises } from '../../api/exercises'
-import { completeWorkout, createWorkout, getWorkout, getWorkouts } from '../../api/workouts'
-import type { Exercise, SetEntry, Workout, WorkoutExercise } from '../../types'
-import { Badge, Button, Card, EmptyState, ErrorState, LoadingState, PageHeading, Select, TextInput } from '../../components/ui'
+import {
+  addExerciseToWorkout,
+  addSetToExerciseSession,
+  completeWorkout,
+  createWorkout,
+  deleteSet,
+  deleteWorkout,
+  getWorkout,
+  getWorkouts,
+  removeExerciseFromWorkout,
+  updateSet,
+} from '../../api/workouts'
+import type { Exercise, SetEntry, SetRequest, Workout, WorkoutExercise } from '../../types'
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, LoadingState, PageHeading, Select, TextInput } from '../../components/ui'
 
 const blankSet = (number: number): SetEntry => ({
   id: crypto.randomUUID(),
@@ -20,11 +31,74 @@ const blankSet = (number: number): SetEntry => ({
 })
 
 function totalVolume(workout: Workout) {
-  return workout.exercises.reduce((total, entry) => total + entry.sets.reduce((sum, set) => sum + set.weight * set.reps, 0), 0)
+  return workout.exercises.reduce((total, entry) => total + entry.sets.reduce((sum, set) => sum + (set.warmup ? 0 : set.weight * set.reps), 0), 0)
+}
+
+function WorkoutSetRow({
+  set,
+  editable,
+  pending,
+  onUpdate,
+  onDelete,
+}: {
+  set: SetEntry
+  editable: boolean
+  pending: boolean
+  onUpdate: (request: SetRequest) => void
+  onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [weight, setWeight] = useState(String(set.weight))
+  const [reps, setReps] = useState(String(set.reps))
+  const [rpe, setRpe] = useState(set.rpe === null ? '' : String(set.rpe))
+  const [rir, setRir] = useState(set.rir === null ? '' : String(set.rir))
+  const [warmup, setWarmup] = useState(set.warmup)
+  const [failure, setFailure] = useState(set.failure)
+  const parsedWeight = Number(weight)
+  const parsedReps = Number(reps)
+  const parsedRpe = rpe === '' ? undefined : Number(rpe)
+  const parsedRir = rir === '' ? undefined : Number(rir)
+  const valid = weight !== '' && Number.isFinite(parsedWeight) && parsedWeight >= 0
+    && parsedWeight <= 999999.99 && Number(parsedWeight.toFixed(2)) === parsedWeight
+    && reps !== '' && Number.isInteger(parsedReps) && parsedReps > 0
+    && (parsedRpe === undefined || (Number.isFinite(parsedRpe) && parsedRpe >= 0 && parsedRpe <= 10))
+    && (parsedRir === undefined || (Number.isFinite(parsedRir) && parsedRir >= 0))
+
+  return (
+    <tr>
+      <td><span className={`set-number${set.warmup ? ' warmup-number' : ''}`}>{set.warmup ? 'W' : set.number}</span></td>
+      <td>{editing ? <TextInput aria-label={`Edit set ${set.number} weight`} type="number" min="0" max="999999.99" step="0.01" value={weight} onChange={(event) => setWeight(event.target.value)} /> : `${set.weight} kg`}</td>
+      <td>{editing ? <TextInput aria-label={`Edit set ${set.number} reps`} type="number" min="1" step="1" value={reps} onChange={(event) => setReps(event.target.value)} /> : set.reps}</td>
+      <td>{editing ? <TextInput aria-label={`Edit set ${set.number} RPE`} type="number" min="0" max="10" step="any" value={rpe} onChange={(event) => setRpe(event.target.value)} /> : set.rpe ?? '—'}</td>
+      <td>{editing ? <TextInput aria-label={`Edit set ${set.number} RIR`} type="number" min="0" step="any" value={rir} onChange={(event) => setRir(event.target.value)} /> : set.rir ?? '—'}</td>
+      <td>{editing ? <input aria-label={`Edit set ${set.number} warmup`} type="checkbox" checked={warmup} onChange={(event) => setWarmup(event.target.checked)} /> : set.warmup ? 'Yes' : 'No'}</td>
+      <td>{editing ? <input aria-label={`Edit set ${set.number} failure`} type="checkbox" checked={failure} onChange={(event) => setFailure(event.target.checked)} /> : set.failure ? 'Yes' : 'No'}</td>
+      <td>{set.warmup ? '—' : `${(set.weight * set.reps).toLocaleString()} kg`}</td>
+      {editable && <td className="set-actions">
+        {editing ? <>
+          <Button size="sm" disabled={pending || !valid} onClick={() => {
+            onUpdate({
+              setNumber: set.number,
+              weight: parsedWeight,
+              reps: parsedReps,
+              ...(parsedRpe === undefined ? {} : { rpe: parsedRpe }),
+              ...(parsedRir === undefined ? {} : { rir: parsedRir }),
+              warmup,
+              failure,
+            })
+          }}>{pending ? 'Saving…' : 'Save'}</Button>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(false)}>Cancel</Button>
+        </> : <>
+          <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={onDelete} aria-label={`Delete set ${set.number}`}><X size={15} /></Button>
+        </>}
+      </td>}
+    </tr>
+  )
 }
 
 export function WorkoutsPage() {
-  const query = useQuery({ queryKey: ['workouts'], queryFn: getWorkouts })
+  const query = useQuery({ queryKey: ['workouts'], queryFn: () => getWorkouts() })
   if (query.isLoading) return <LoadingState />
   if (query.error) return <ErrorState message="Workout history couldn't be loaded." retry={() => { void query.refetch() }} />
   const workouts = query.data ?? []
@@ -101,7 +175,26 @@ export function NewWorkoutPage() {
     setEntries((current) => current.filter((entry) => entry.exercise.id !== id))
   }
 
+  function submitWorkout(completed: boolean) {
+    const now = new Date()
+    mutation.mutate({
+      name: name.trim() || 'Training session',
+      date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      startedAt: new Date(startedAt).toISOString(),
+      durationMinutes: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
+      exercises: entries,
+      completed,
+    })
+  }
+
   const availableExercises = exercisesQuery.data?.filter((exercise) => !entries.some((entry) => entry.exercise.id === exercise.id)) ?? []
+  const hasInvalidSet = entries.some((entry) => entry.sets.some((set) =>
+    !Number.isFinite(set.weight) || set.weight < 0 || set.weight > 999999.99
+    || Number(set.weight.toFixed(2)) !== set.weight
+    || !Number.isInteger(set.reps) || set.reps <= 0
+    || (set.rpe !== null && (!Number.isFinite(set.rpe) || set.rpe < 0 || set.rpe > 10))
+    || (set.rir !== null && (!Number.isFinite(set.rir) || set.rir < 0)),
+  ))
 
   return (
     <div className="page-stack">
@@ -110,7 +203,7 @@ export function NewWorkoutPage() {
       {mutation.error && <ErrorState message={apiErrorMessage(mutation.error)} />}
       <Card className="workout-composer">
         <label className="field-label" htmlFor="workout-name">Workout name</label>
-        <TextInput id="workout-name" placeholder="e.g. Upper body — strength" value={name} onChange={(event) => setName(event.target.value)} />
+        <TextInput id="workout-name" maxLength={120} placeholder="e.g. Upper body — strength" value={name} onChange={(event) => setName(event.target.value)} />
       </Card>
 
       {entries.map((entry) => (
@@ -127,8 +220,8 @@ export function NewWorkoutPage() {
                   <td><span className={`set-number${set.warmup ? ' warmup-number' : ''}`}>{set.warmup ? 'W' : set.number}</span></td>
                   <td><TextInput aria-label={`Set ${set.number} weight`} type="number" min="0" max="999999.99" step="0.01" value={set.weight || ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'weight', Number(event.target.value))} /></td>
                   <td><TextInput aria-label={`Set ${set.number} reps`} type="number" min="1" step="1" value={set.reps || ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'reps', Number(event.target.value))} /></td>
-                  <td><TextInput aria-label={`Set ${set.number} RPE`} type="number" min="0" max="10" step="0.01" placeholder="—" value={set.rpe ?? ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'rpe', event.target.value ? Number(event.target.value) : null)} /></td>
-                  <td><TextInput aria-label={`Set ${set.number} RIR`} type="number" min="0" step="0.01" placeholder="—" value={set.rir ?? ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'rir', event.target.value ? Number(event.target.value) : null)} /></td>
+                  <td><TextInput aria-label={`Set ${set.number} RPE`} type="number" min="0" max="10" step="any" placeholder="—" value={set.rpe ?? ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'rpe', event.target.value ? Number(event.target.value) : null)} /></td>
+                  <td><TextInput aria-label={`Set ${set.number} RIR`} type="number" min="0" step="any" placeholder="—" value={set.rir ?? ''} onChange={(event) => updateSet(entry.exercise.id, set.id, 'rir', event.target.value ? Number(event.target.value) : null)} /></td>
                   <td><input aria-label={`Set ${set.number} warmup`} type="checkbox" checked={set.warmup} onChange={(event) => updateSet(entry.exercise.id, set.id, 'warmup', event.target.checked)} /></td>
                   <td><input aria-label={`Set ${set.number} failure`} type="checkbox" checked={set.failure} onChange={(event) => updateSet(entry.exercise.id, set.id, 'failure', event.target.checked)} /></td>
                 </tr>
@@ -155,18 +248,10 @@ export function NewWorkoutPage() {
       </Card>
       <div className="workout-actions">
         <Link to="/workouts" className="text-link">Cancel</Link>
-        <Button disabled={mutation.isPending || entries.length === 0 || entries.some((entry) => entry.sets.some((set) =>
-          set.weight < 0 || set.weight > 999999.99 || Number(set.weight.toFixed(2)) !== set.weight
-          || set.reps <= 0 || !Number.isInteger(set.reps)
-          || (set.rpe !== null && (set.rpe < 0 || set.rpe > 10 || Number(set.rpe.toFixed(2)) !== set.rpe))
-          || (set.rir !== null && (set.rir < 0 || Number(set.rir.toFixed(2)) !== set.rir)),
-        ))} onClick={() => mutation.mutate({
-          name: name.trim() || 'Training session',
-          date: new Date().toISOString(),
-          durationMinutes: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
-          exercises: entries,
-          completed: true,
-        })}>
+        <Button variant="secondary" disabled={mutation.isPending || entries.length === 0 || hasInvalidSet} onClick={() => submitWorkout(false)}>
+          {mutation.isPending ? 'Saving…' : 'Save draft'}
+        </Button>
+        <Button disabled={mutation.isPending || entries.length === 0 || hasInvalidSet} onClick={() => submitWorkout(true)}>
           <Check size={17} /> {mutation.isPending ? 'Saving…' : 'Complete workout'}
         </Button>
       </div>
@@ -178,7 +263,21 @@ export function WorkoutDetailPage() {
   const { workoutId = '' } = useParams()
   const queryClient = useQueryClient()
   const workoutQuery = useQuery({ queryKey: ['workout', workoutId], queryFn: () => getWorkout(workoutId) })
+  const workout = workoutQuery.data
   const [completedWorkout, setCompletedWorkout] = useState<Workout | null>(null)
+  const editable = Boolean(workout && !(completedWorkout ?? workout).completed)
+  const exerciseQuery = useQuery({
+    queryKey: ['exercises'],
+    queryFn: getExercises,
+    enabled: editable,
+  })
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [selectedExerciseId, setSelectedExerciseId] = useState('')
+  const refreshWorkout = async () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['workout', workoutId] }),
+    queryClient.invalidateQueries({ queryKey: ['workouts'] }),
+    queryClient.invalidateQueries({ queryKey: ['dashboardAnalytics'] }),
+  ])
   const completeMutation = useMutation({
     mutationFn: completeWorkout,
     onSuccess: async (updated) => {
@@ -193,20 +292,69 @@ export function WorkoutDetailPage() {
       ])
     },
   })
+  const addExerciseMutation = useMutation({
+    mutationFn: (input: { exerciseId: string; exerciseOrder: number }) => addExerciseToWorkout(workoutId, input),
+    onSuccess: async () => {
+      setSelectedExerciseId('')
+      await refreshWorkout()
+    },
+  })
+  const removeExerciseMutation = useMutation({
+    mutationFn: (exerciseSessionId: string) => removeExerciseFromWorkout(workoutId, exerciseSessionId),
+    onSuccess: refreshWorkout,
+  })
+  const addSetMutation = useMutation({
+    mutationFn: ({ sessionId, request }: { sessionId: string; request: SetRequest }) => addSetToExerciseSession(sessionId, request),
+    onSuccess: refreshWorkout,
+  })
+  const updateSetMutation = useMutation({
+    mutationFn: ({ id, request }: { id: string; request: SetRequest }) => updateSet(id, request),
+    onSuccess: refreshWorkout,
+  })
+  const deleteSetMutation = useMutation({
+    mutationFn: deleteSet,
+    onSuccess: refreshWorkout,
+  })
+  const deleteMutation = useMutation({
+    mutationFn: deleteWorkout,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['workouts'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboardAnalytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['dailyAnalytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['prs'] }),
+        queryClient.invalidateQueries({ queryKey: ['exerciseAnalytics'] }),
+      ])
+      navigate('/workouts')
+    },
+  })
+  const navigate = useNavigate()
+  const availableExercises = (exerciseQuery.data ?? []).filter((exercise) =>
+    !workout?.exercises.some((entry) => entry.exercise.id === exercise.id),
+  )
+  const exerciseOrder = Math.max(0, ...(workout?.exercises.map((entry) => entry.order ?? 0) ?? [])) + 1
 
   if (workoutQuery.isLoading) return <LoadingState />
-  if (workoutQuery.error) return <ErrorState message="This workout couldn't be loaded." retry={() => { void workoutQuery.refetch() }} />
-  const workout = workoutQuery.data
+  if (workoutQuery.error && isApiNotFound(workoutQuery.error)) return <Card><EmptyState title="Workout not found" description="This workout may have been removed." action={<Link to="/workouts"><Button variant="secondary">Back to workouts</Button></Link>} /></Card>
+  if (workoutQuery.error) return <ErrorState message={apiErrorMessage(workoutQuery.error)} retry={() => { void workoutQuery.refetch() }} />
   if (!workout) return <Card><EmptyState title="Workout not found" description="This workout may have been removed." action={<Link to="/workouts"><Button variant="secondary">Back to workouts</Button></Link>} /></Card>
 
   const sets = workout.exercises.reduce((sum, entry) => sum + entry.sets.length, 0)
+  const currentWorkout = completedWorkout ?? workout
   return (
     <div className="page-stack">
       <Link to="/workouts" className="back-link"><ArrowLeft size={16} /> Workout history</Link>
       <PageHeading eyebrow={new Date(workout.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} title={workout.name}
-        action={<Badge tone={workout.completed ? 'green' : 'amber'}>{workout.completed ? 'Completed' : 'In progress'}</Badge>} />
-      {(completedWorkout ?? workout).personalRecords?.map((record) => <div className="pr-notice" key={record.id}><div className="pr-notice-icon"><Trophy size={21} /></div><div><span>NEW PR · {record.type.toUpperCase()}</span><strong>{record.exercise} — {record.value}</strong><p>Previous: {record.previous} · Improvement: {record.improvement}</p></div></div>)}
-      {completeMutation.error && <ErrorState message="This workout couldn't be completed. Please try again." />}
+        action={<Badge tone={currentWorkout.completed ? 'green' : 'amber'}>{currentWorkout.completed ? 'Completed' : 'In progress'}</Badge>} />
+      {(completedWorkout ?? workout).personalRecords?.map((record) => <div className="pr-notice" key={record.id}><div className="pr-notice-icon"><Trophy size={21} /></div><div><span>NEW PR · {record.type.toUpperCase()}</span><strong>{record.exercise} — {record.value}</strong></div></div>)}
+      {completeMutation.error && <ErrorState message={apiErrorMessage(completeMutation.error)} />}
+      {deleteMutation.error && <ErrorState message={apiErrorMessage(deleteMutation.error)} />}
+      {addExerciseMutation.error && <ErrorState message={apiErrorMessage(addExerciseMutation.error)} />}
+      {removeExerciseMutation.error && <ErrorState message={apiErrorMessage(removeExerciseMutation.error)} />}
+      {addSetMutation.error && <ErrorState message={apiErrorMessage(addSetMutation.error)} />}
+      {updateSetMutation.error && <ErrorState message={apiErrorMessage(updateSetMutation.error)} />}
+      {deleteSetMutation.error && <ErrorState message={apiErrorMessage(deleteSetMutation.error)} />}
+      {editable && exerciseQuery.error && <ErrorState message={apiErrorMessage(exerciseQuery.error)} retry={() => { void exerciseQuery.refetch() }} />}
       <div className="stats-grid detail-stats">
         <div className="mini-stat"><span>Duration</span><strong>{workout.durationMinutes || '—'}{workout.durationMinutes ? ' min' : ''}</strong></div>
         <div className="mini-stat"><span>Exercises</span><strong>{workout.exercises.length}</strong></div>
@@ -215,13 +363,47 @@ export function WorkoutDetailPage() {
       </div>
       {workout.exercises.map((entry) => (
         <Card key={entry.exercise.id} className="detail-exercise">
-          <div className="entry-heading"><div><span className="eyebrow">{entry.exercise.muscleGroup.toUpperCase()}</span><h2>{entry.exercise.name}</h2></div><Link className="text-link" to={`/exercises/${entry.exercise.id}`}>Progress <ArrowRight size={14} /></Link></div>
-          <div className="set-table-wrap"><table className="set-table detail-table"><thead><tr><th>SET</th><th>WEIGHT</th><th>REPS</th><th>RPE</th><th>RIR</th><th>VOLUME</th></tr></thead>
-            <tbody>{entry.sets.map((set) => <tr key={set.id}><td><span className="set-number">{set.number}</span></td><td>{set.weight} kg</td><td>{set.reps}</td><td>{set.rpe ?? '—'}</td><td>{set.rir ?? '—'}</td><td>{(set.weight * set.reps).toLocaleString()} kg</td></tr>)}</tbody>
+          <div className="entry-heading"><div><span className="eyebrow">{entry.exercise.muscleGroup.toUpperCase()}</span><h2>{entry.exercise.name}</h2></div><div className="entry-actions"><Link className="text-link" to={`/exercises/${entry.exercise.id}`}>Progress <ArrowRight size={14} /></Link>{editable && entry.sessionId && <Button variant="ghost" size="sm" disabled={removeExerciseMutation.isPending} onClick={() => entry.sessionId && removeExerciseMutation.mutate(entry.sessionId)} aria-label={`Remove ${entry.exercise.name} from workout`}><X size={16} /></Button>}</div></div>
+          <div className="set-table-wrap"><table className="set-table detail-table"><thead><tr><th>SET</th><th>WEIGHT</th><th>REPS</th><th>RPE</th><th>RIR</th><th>WARMUP</th><th>FAILURE</th><th>VOLUME</th>{editable && <th>ACTIONS</th>}</tr></thead>
+            <tbody>{entry.sets.map((set) => <WorkoutSetRow
+              key={set.id}
+              set={set}
+              editable={editable}
+              pending={updateSetMutation.isPending || deleteSetMutation.isPending}
+              onUpdate={(request) => updateSetMutation.mutate({ id: set.id, request })}
+              onDelete={() => deleteSetMutation.mutate(set.id)}
+            />)}</tbody>
           </table></div>
+          {editable && entry.sessionId && <Button variant="secondary" size="sm" disabled={addSetMutation.isPending} onClick={() => {
+            const setNumber = Math.max(0, ...entry.sets.map((set) => set.number)) + 1
+            if (entry.sessionId) addSetMutation.mutate({ sessionId: entry.sessionId, request: { setNumber, weight: 0, reps: 1, warmup: false, failure: false } })
+          }}><Plus size={15} /> Add set</Button>}
         </Card>
       ))}
-      {!(completedWorkout ?? workout).completed && <div className="workout-actions"><Button variant="secondary" disabled={completeMutation.isPending} onClick={() => completeMutation.mutate(workout.id)}><Check size={17} /> {completeMutation.isPending ? 'Saving…' : 'Complete workout'}</Button></div>}
+      {editable && <Card className="add-exercise-row">
+        <div><h3>Add an exercise</h3><p className="muted">Choose from your exercise library.</p></div>
+        {exerciseQuery.isLoading ? <span className="muted">Loading exercises…</span> : (
+          <Select aria-label="Add exercise to workout" value={selectedExerciseId} disabled={addExerciseMutation.isPending} onChange={(event) => {
+            setSelectedExerciseId(event.target.value)
+            if (event.target.value) addExerciseMutation.mutate({ exerciseId: event.target.value, exerciseOrder })
+          }}>
+            <option value="">Select exercise…</option>
+            {availableExercises.map((exercise) => <option value={exercise.id} key={exercise.id}>{exercise.name} · {exercise.muscleGroup}</option>)}
+          </Select>
+        )}
+      </Card>}
+      <div className="workout-actions">
+        {!(completedWorkout ?? workout).completed && <Button variant="secondary" disabled={completeMutation.isPending} onClick={() => completeMutation.mutate(workout.id)}><Check size={17} /> {completeMutation.isPending ? 'Saving…' : 'Complete workout'}</Button>}
+        <Button variant="ghost" disabled={deleteMutation.isPending} onClick={() => setShowDeleteConfirmation(true)}><Trash2 size={16} /> {deleteMutation.isPending ? 'Deleting…' : 'Delete workout'}</Button>
+      </div>
+      <ConfirmDialog
+        open={showDeleteConfirmation}
+        title="Delete workout?"
+        message="This permanently removes the workout and its exercises, sets, and associated records."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete workout'}
+        onCancel={() => setShowDeleteConfirmation(false)}
+        onConfirm={() => deleteMutation.mutate(workout.id)}
+      />
     </div>
   )
 }

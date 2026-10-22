@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Plus, Search, Trophy, X } from 'lucide-react'
 import { apiErrorMessage } from '../../api/client'
 import { createExercise, getExercise, getExerciseAnalytics, getExercises } from '../../api/exercises'
+import { getExercisePRs } from '../../api/prs'
 import { ExerciseVolumeChart, StrengthChart } from '../../components/Charts'
 import { Badge, Button, Card, EmptyState, ErrorState, LoadingState, PageHeading, Select, StatCard, TextInput } from '../../components/ui'
 
@@ -58,10 +59,10 @@ export function ExercisesPage() {
           event.preventDefault()
           createMutation.mutate({
             name: name.trim(),
-            description: description.trim() || null,
-            muscleGroup: muscleGroup.trim() || null,
-            equipment: exerciseEquipment.trim() || null,
-            movementType: movementType.trim() || null,
+            ...(description.trim() ? { description: description.trim() } : {}),
+            ...(muscleGroup.trim() ? { muscleGroup: muscleGroup.trim() } : {}),
+            ...(exerciseEquipment.trim() ? { equipment: exerciseEquipment.trim() } : {}),
+            ...(movementType.trim() ? { movementType: movementType.trim() } : {}),
             compound,
           })
         }}>
@@ -88,7 +89,7 @@ export function ExercisesPage() {
         <Select aria-label="Filter by equipment" value={equipment} onChange={(event) => setEquipment(event.target.value)}><option>All equipment</option>{equipmentOptions.map((item) => <option key={item}>{item}</option>)}</Select>
         <Select aria-label="Filter by exercise type" value={category} onChange={(event) => setCategory(event.target.value)}><option>All types</option><option>Compound</option><option>Isolation</option></Select>
       </div>
-      {filtered.length ? <div className="exercise-grid">
+      {!exercises.length ? <Card><EmptyState title="No exercises in your library" description="Create an exercise to start building your training history." action={<Button onClick={() => setShowCreate(true)}>Add exercise</Button>} /></Card> : filtered.length ? <div className="exercise-grid">
         {filtered.map((exercise) => <Link to={`/exercises/${exercise.id}`} className="exercise-card-link" key={exercise.id}>
           <Card className="exercise-card">
             <div className="exercise-card-top"><span className="exercise-icon">↗</span><ArrowRight size={16} className="muted-icon" /></div>
@@ -108,13 +109,25 @@ export function ExercisesPage() {
 export function ExerciseDetailPage() {
   const { exerciseId = '' } = useParams()
   const exerciseQuery = useQuery({ queryKey: ['exercise', exerciseId], queryFn: () => getExercise(exerciseId) })
-  const analyticsQuery = useQuery({ queryKey: ['exerciseAnalytics', exerciseId], queryFn: () => getExerciseAnalytics(exerciseId) })
+  const analyticsQuery = useQuery({
+    queryKey: ['exerciseAnalytics', exerciseId],
+    queryFn: () => getExerciseAnalytics(exerciseId),
+    enabled: exerciseQuery.isSuccess && Boolean(exerciseQuery.data),
+  })
+  const recordsQuery = useQuery({
+    queryKey: ['exercisePrs', exerciseId],
+    queryFn: () => getExercisePRs(exerciseId),
+    enabled: exerciseQuery.isSuccess && Boolean(exerciseQuery.data),
+  })
 
-  if (exerciseQuery.isLoading || analyticsQuery.isLoading) return <LoadingState label="Loading exercise progression…" />
-  if (exerciseQuery.error || analyticsQuery.error) return <ErrorState message="Exercise progression couldn't be loaded." retry={() => { void exerciseQuery.refetch(); void analyticsQuery.refetch() }} />
+  if (exerciseQuery.isLoading || (exerciseQuery.data && (analyticsQuery.isLoading || recordsQuery.isLoading))) return <LoadingState label="Loading exercise progression…" />
+  if (exerciseQuery.error) return <ErrorState message={apiErrorMessage(exerciseQuery.error)} retry={() => { void exerciseQuery.refetch() }} />
   const exercise = exerciseQuery.data
   const analytics = analyticsQuery.data
-  if (!exercise || !analytics) return <Card><EmptyState title="Exercise not found" description="Choose an exercise from the library to view its training history." action={<Link to="/exercises"><Button variant="secondary">Exercise library</Button></Link>} /></Card>
+  if (!exercise || (!analytics && analyticsQuery.error)) return <Card><EmptyState title="Exercise not found" description="Choose an exercise from the library to view its training history." action={<Link to="/exercises"><Button variant="secondary">Exercise library</Button></Link>} /></Card>
+  if (!analytics) return <ErrorState message="Exercise progression couldn't be loaded." retry={() => { void analyticsQuery.refetch() }} />
+  if (recordsQuery.error) return <ErrorState message={apiErrorMessage(recordsQuery.error)} retry={() => { void recordsQuery.refetch() }} />
+  const records = recordsQuery.data ?? []
 
   return (
     <div className="page-stack">
@@ -136,6 +149,11 @@ export function ExerciseDetailPage() {
         <StrengthChart data={analytics.strengthProgression} />
         <ExerciseVolumeChart data={analytics.volumeOverTime} />
       </div>
+      <div className="section-title-row section-title-spaced"><div><p className="eyebrow">MILESTONES</p><h2>Personal records</h2></div></div>
+      {records.length ? <div className="records-list">{records.map((record) => <Card className="record-card" key={record.id}>
+        <div className="record-main"><div className="record-top"><Badge tone="green">{record.type}</Badge><span>{new Date(record.date).toLocaleDateString()}</span></div><h3>{record.exercise}</h3></div>
+        <div className="record-value"><span>NEW BEST</span><strong>{record.value}</strong></div>
+      </Card>)}</div> : <Card><EmptyState title="No personal records for this exercise" description="Records will appear here as you progress." /></Card>}
     </div>
   )
 }

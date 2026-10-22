@@ -12,7 +12,7 @@ function volumeOf(exercises: WorkoutExercise[]) {
 }
 
 export function DashboardPage() {
-  const workoutQuery = useQuery({ queryKey: ['workouts'], queryFn: getWorkouts })
+  const workoutQuery = useQuery({ queryKey: ['workouts'], queryFn: () => getWorkouts() })
   const analyticsQuery = useQuery({ queryKey: ['dashboardAnalytics'], queryFn: getDashboardAnalytics })
   const prsQuery = useQuery({ queryKey: ['prs'], queryFn: getPRs })
 
@@ -75,8 +75,7 @@ export function DashboardPage() {
           <Card key={pr.id} className="pr-row">
             <div className="pr-symbol"><Trophy size={18} /></div>
             <div className="pr-copy"><strong>{pr.exercise}</strong><span>{pr.type} · {new Date(pr.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>
-            <div className="pr-values"><strong>{pr.value}</strong>{pr.previous && <span>from {pr.previous}</span>}</div>
-            {pr.improvement && <Badge tone="green">{pr.improvement}</Badge>}
+            <div className="pr-values"><strong>{pr.value}</strong></div>
           </Card>
         ))}
       </div> : <Card><EmptyState title="No PRs yet" description="Complete your first workout to start tracking progression." /></Card>}
