@@ -142,7 +142,7 @@ describe('workout API contract', () => {
       .resolves.toBe('session-uuid')
     await addSetToExerciseSession('session-uuid', { setNumber: 1, weight: 0, reps: 1 })
     await updateSet('set-uuid', { setNumber: 1, weight: 85, reps: 8 })
-    await updateWorkout('workout-uuid', { userId: 'user-uuid', workoutDate: '2026-10-22' })
+    await updateWorkout('workout-uuid', { userId: 'another-user', workoutDate: '2026-10-22' })
     await expect(removeExerciseFromWorkout('workout-uuid', 'session-uuid')).resolves.toBeUndefined()
     await expect(deleteSet('set-uuid')).resolves.toBeUndefined()
     await expect(deleteWorkout('workout-uuid')).resolves.toBeUndefined()
