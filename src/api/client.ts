@@ -11,7 +11,6 @@ export const isApiConfigured = Boolean(baseURL)
 
 export const apiClient = axios.create({
   baseURL,
-  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 })
 
