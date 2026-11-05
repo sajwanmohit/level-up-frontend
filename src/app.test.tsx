@@ -1,14 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import type { InternalAxiosRequestConfig } from 'axios'
+import { useState, type ReactNode } from 'react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiClient, isApiConfigured, requireApiConfigured } from './api/client'
+import { apiClient, apiErrorMessage, isApiConfigured, requireApiConfigured } from './api/client'
+import { clearAuthenticatedSession, getAccessToken, setAuthenticatedSession } from './api/auth'
+import { getActiveUser } from './api/user'
 import type { ApiDailyAnalytics, Exercise, ExerciseAnalytics, PersonalRecord, Workout } from './types'
 import { AnalyticsPage } from './features/analytics/AnalyticsPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { AppShell } from './components/AppShell'
 import { ExerciseDetailPage, ExercisesPage } from './features/exercises/ExercisePages'
 import { PRsPage } from './features/prs/PRsPage'
+import { AuthPage } from './features/auth/AuthPage'
 import { NewWorkoutPage, WorkoutDetailPage } from './features/workouts/WorkoutPages'
 
 const apiMocks = vi.hoisted(() => ({
@@ -143,8 +148,32 @@ function renderWithProviders(element: ReactNode, initialEntries = ['/']) {
   )
 }
 
+function ProtectedRequestPage() {
+  const [requestFailed, setRequestFailed] = useState(false)
+  return (
+    <button type="button" onClick={async () => {
+      try {
+        await apiClient.get('/exercises', {
+          adapter: async (config) => {
+            throw Object.assign(new Error('Unauthorized'), {
+              isAxiosError: true,
+              response: { data: {}, status: 401, statusText: 'Unauthorized', headers: {}, config },
+            })
+          },
+        })
+      } catch {
+        setRequestFailed(true)
+      }
+    }}>
+      {requestFailed ? 'Request failed' : 'Make protected request'}
+    </button>
+  )
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.restoreAllMocks()
+  clearAuthenticatedSession()
   createdWorkout = null
   apiMocks.getExercises.mockResolvedValue([benchPress, lateralRaise])
   apiMocks.getExercise.mockResolvedValue(benchPress)
@@ -169,6 +198,203 @@ beforeEach(() => {
 })
 
 describe('Level Up frontend', () => {
+  it('submits sign-up and switches to login after the empty 201 response', async () => {
+    vi.spyOn(apiClient, 'post').mockImplementation(async () => ({ status: 201, data: undefined }) as never)
+    renderWithProviders(<AuthPage />)
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Taylor Athlete' } })
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'Taylor@Example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('heading', { name: 'Welcome back.' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Account created. Log in to continue.')
+    expect(apiClient.post).toHaveBeenCalledWith('/auth/signup', {
+      name: 'Taylor Athlete',
+      email: 'taylor@example.com',
+      password: 'secure-pass',
+    })
+  })
+
+  it('rejects signup passwords exceeding the backend UTF-8 byte limit', () => {
+    const post = vi.spyOn(apiClient, 'post')
+    renderWithProviders(<AuthPage />)
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Taylor Athlete' } })
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'taylor@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'é'.repeat(37) } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Create account' }).closest('form')!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('no more than 72 UTF-8 bytes')
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('shows a generic login failure for unauthorized credentials', async () => {
+    vi.spyOn(apiClient, 'post').mockImplementation(() => Promise.reject(
+      Object.assign(new Error('Unauthorized'), { isAxiosError: true, response: { status: 401 } }),
+    ))
+    renderWithProviders(<AuthPage />)
+    fireEvent.click(within(screen.getByRole('group', { name: 'Account action' })).getByRole('button', { name: 'Log in' }))
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'taylor@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email or password is incorrect.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('registered')
+  })
+
+  it('logs in with the returned backend session and redirects to the requested page', async () => {
+    vi.spyOn(apiClient, 'post').mockImplementation(async () => ({
+      status: 200,
+      data: {
+        user: { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' },
+        accessToken: 'backend-token',
+      },
+    }) as never)
+    renderWithProviders(
+      <Routes>
+        <Route path="/auth" element={<AuthPage />} />
+        <Route element={<AppShell />}>
+          <Route path="/workouts/new" element={<div>New workout page</div>} />
+        </Route>
+      </Routes>,
+      ['/workouts/new'],
+    )
+    fireEvent.click(within(screen.getByRole('group', { name: 'Account action' })).getByRole('button', { name: 'Log in' }))
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'taylor@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByText('New workout page')).toBeInTheDocument()
+    expect(getAccessToken()).toBe('backend-token')
+    expect(getActiveUser()).toEqual({ id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' })
+  })
+
+  it('clears the session when the user signs out', async () => {
+    setAuthenticatedSession({
+      user: { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' },
+      accessToken: 'backend-token',
+    })
+    renderWithProviders(<AuthPage />, ['/auth'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(getAccessToken()).toBeNull()
+    expect(getActiveUser()).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Build your next level.' })).toBeInTheDocument()
+  })
+
+  it('renders the sign-up and sign-in forms', () => {
+    renderWithProviders(<AuthPage />)
+
+    expect(screen.getByRole('heading', { name: 'Build your next level.' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Full name')).toBeInTheDocument()
+    fireEvent.click(within(screen.getByRole('group', { name: 'Account action' })).getByRole('button', { name: 'Log in' }))
+    expect(screen.getByRole('heading', { name: 'Welcome back.' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument()
+  })
+
+  it('stores the backend token in a session and attaches it to API requests', async () => {
+    const user = { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' }
+    setAuthenticatedSession({ user, accessToken: 'backend-token' })
+    expect(getAccessToken()).toBe('backend-token')
+
+    const response = await apiClient.get('/exercises', {
+      adapter: async (config) => ({
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }),
+    })
+    expect(response.config.headers.get('Authorization')).toBe('Bearer backend-token')
+    clearAuthenticatedSession()
+    expect(getAccessToken()).toBeNull()
+  })
+
+  it('does not send an existing token to public signup and login endpoints', async () => {
+    setAuthenticatedSession({
+      user: { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' },
+      accessToken: 'stale-token',
+    })
+    const adapter = async (config: InternalAxiosRequestConfig) => ({
+      data: undefined,
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+    })
+
+    const signupResponse = await apiClient.post('/auth/signup', {}, { adapter })
+    const loginResponse = await apiClient.post('/auth/login', {}, { adapter })
+
+    expect(signupResponse.config.headers.get('Authorization')).toBeUndefined()
+    expect(loginResponse.config.headers.get('Authorization')).toBeUndefined()
+    clearAuthenticatedSession()
+  })
+
+  it('clears the session and redirects to login after a protected API returns 401', async () => {
+    setAuthenticatedSession({
+      user: { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' },
+      accessToken: 'backend-token',
+    })
+    renderWithProviders(
+      <Routes>
+        <Route path="/auth" element={<div>Sign-in page</div>} />
+        <Route element={<AppShell />}>
+          <Route path="/dashboard" element={<ProtectedRequestPage />} />
+        </Route>
+      </Routes>,
+      ['/dashboard'],
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Make protected request' }))
+    expect(await screen.findByText('Sign-in page')).toBeInTheDocument()
+    expect(getAccessToken()).toBeNull()
+  })
+
+  it('displays a generic forbidden-resource message for 403 responses', () => {
+    const forbidden = Object.assign(new Error('Forbidden'), {
+      isAxiosError: true,
+      response: { status: 403 },
+    })
+    expect(apiErrorMessage(forbidden)).toBe("You don't have permission to access this resource.")
+  })
+
+  it('redirects unsigned users away from training pages', async () => {
+    clearAuthenticatedSession()
+    renderWithProviders(
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/dashboard" element={<div>Training workspace</div>} />
+        </Route>
+        <Route path="/auth" element={<div>Sign-in page</div>} />
+      </Routes>,
+      ['/dashboard'],
+    )
+
+    expect(await screen.findByText('Sign-in page')).toBeInTheDocument()
+    expect(screen.queryByText('Training workspace')).not.toBeInTheDocument()
+  })
+
+  it('allows a signed-in user to access training pages', () => {
+    setAuthenticatedSession({
+      user: { id: 'user-id', name: 'Taylor Athlete', email: 'taylor@example.com' },
+      accessToken: 'backend-token',
+    })
+    renderWithProviders(
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/dashboard" element={<div>Training workspace</div>} />
+        </Route>
+        <Route path="/auth" element={<div>Sign-in page</div>} />
+      </Routes>,
+      ['/dashboard'],
+    )
+
+    expect(screen.getByText('Training workspace')).toBeInTheDocument()
+    clearAuthenticatedSession()
+  })
+
   it('renders the dashboard and its backend training summary', async () => {
     renderWithProviders(<DashboardPage />)
     expect(await screen.findByRole('heading', { name: 'Good morning, athlete.' })).toBeInTheDocument()

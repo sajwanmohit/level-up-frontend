@@ -148,7 +148,10 @@ export async function createWorkout(workout: Omit<Workout, 'id'>): Promise<Worko
 
 export async function updateWorkout(id: string, input: CreateWorkoutRequest): Promise<ApiWorkout> {
   requireApiConfigured()
-  const { data } = await apiClient.put<ApiWorkout>(`/workouts/${encodeURIComponent(id)}`, input)
+  const { data } = await apiClient.put<ApiWorkout>(`/workouts/${encodeURIComponent(id)}`, {
+    ...input,
+    userId: getRequiredUserId(),
+  })
   return data
 }
 

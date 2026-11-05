@@ -5,11 +5,11 @@ import { AppShell } from './components/AppShell'
 import { LoadingState } from './components/ui'
 
 const AnalyticsPage = lazy(() => import('./features/analytics/AnalyticsPage').then((module) => ({ default: module.AnalyticsPage })))
+const AuthPage = lazy(() => import('./features/auth/AuthPage').then((module) => ({ default: module.AuthPage })))
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 const ExerciseDetailPage = lazy(() => import('./features/exercises/ExercisePages').then((module) => ({ default: module.ExerciseDetailPage })))
 const ExercisesPage = lazy(() => import('./features/exercises/ExercisePages').then((module) => ({ default: module.ExercisesPage })))
 const PRsPage = lazy(() => import('./features/prs/PRsPage').then((module) => ({ default: module.PRsPage })))
-const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })))
 const NewWorkoutPage = lazy(() => import('./features/workouts/WorkoutPages').then((module) => ({ default: module.NewWorkoutPage })))
 const WorkoutDetailPage = lazy(() => import('./features/workouts/WorkoutPages').then((module) => ({ default: module.WorkoutDetailPage })))
 const WorkoutsPage = lazy(() => import('./features/workouts/WorkoutPages').then((module) => ({ default: module.WorkoutsPage })))
@@ -26,6 +26,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<LoadingState />}>
           <Routes>
+            <Route path="/auth" element={<AuthPage />} />
             <Route element={<AppShell />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -36,7 +37,7 @@ export default function App() {
               <Route path="/exercises/:exerciseId" element={<ExerciseDetailPage />} />
               <Route path="/prs" element={<PRsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings" element={<Navigate to="/auth" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>
